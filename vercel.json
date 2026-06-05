@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "pages/api/send.ts": {
+      "maxDuration": 30
+    }
+  }
+}
