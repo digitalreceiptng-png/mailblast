@@ -44,6 +44,7 @@ export default function Home() {
   const [sending, setSending] = useState(false)
   const [pi, setPi] = useState(0)
   const [smtpStatus, setSmtpStatus] = useState<'idle' | 'ok' | 'fail'>('idle')
+  const [delay, setDelay] = useState(3000)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   const loadCSV = (text: string) => {
@@ -97,7 +98,12 @@ export default function Home() {
       } catch {
         setLog(l => [...l, { ok: false, to, name: row.name || '', error: 'Network error' }])
       }
-      await new Promise(r => setTimeout(r, 300))
+      // 3 second delay between emails to avoid Zoho rate limiting
+      await new Promise(r => setTimeout(r, delay))
+      // Extra 10 second pause every 10 emails
+      if ((log.length + 1) % 10 === 0) {
+        await new Promise(r => setTimeout(r, 10000))
+      }
     }
     setSending(false)
   }
@@ -277,6 +283,18 @@ export default function Home() {
             <Card>
               <Label>App secret (if you set APP_SECRET in .env)</Label>
               <input type="password" value={secret} onChange={e => setSecret(e.target.value)} placeholder="Leave blank if not set" />
+            </Card>
+
+            {/* Send delay */}
+            <Card>
+              <Label>Delay between emails (to avoid Zoho rate limiting)</Label>
+              <select value={delay} onChange={e => setDelay(Number(e.target.value))} style={{ width: '100%', padding: '9px 12px', fontSize: '14px', border: '1px solid var(--border2)', borderRadius: 'var(--radius)', background: 'var(--surface2)', color: 'var(--text)' }}>
+                <option value={2000}>2 seconds — small lists (under 30)</option>
+                <option value={3000}>3 seconds — medium lists (30–80)</option>
+                <option value={5000}>5 seconds — large lists (80–150)</option>
+                <option value={8000}>8 seconds — very large lists (150+)</option>
+              </select>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>Slower = fewer failures. A batch of 200 at 5s takes ~17 minutes.</p>
             </Card>
 
             {/* Stats */}
