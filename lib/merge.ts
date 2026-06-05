@@ -9,12 +9,17 @@ export function mergeTemplate(template: string, row: Record<string, string>): st
 }
 
 /**
- * Convert plain-text body to basic HTML (preserves line breaks).
+ * Convert plain-text body to HTML.
+ * Supports **bold** markdown syntax and preserves line breaks.
  */
 export function textToHtml(text: string): string {
   const escaped = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#1a1a1a;max-width:600px">${escaped.replace(/\n/g, '<br/>')}</div>`
+
+  const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  const withBreaks = withBold.replace(/\n/g, '<br/>')
+
+  return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.9;color:#1a1a1a;max-width:600px;padding:24px">${withBreaks}</div>`
 }

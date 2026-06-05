@@ -8,12 +8,11 @@ type Row = Record<string, string>
 type LogEntry = SendResult & { name?: string }
 type Step = 0 | 1 | 2 | 3
 
-const SAMPLE_CSV = `name,email,company,role
-Adaeze Obi,adaeze@example.com,TechLagos,CTO
-Emeka Nwosu,emeka@example.com,Finreach,CEO
-Blessing Adekunle,blessing@example.com,GrowthCo,Marketing Lead
-Tunde Bakare,tunde@example.com,Naira Hub,Product Manager
-Funmi Adesanya,funmi@example.com,PowerPlay,Head of Sales`
+const SAMPLE_CSV = `name,email,category,organisation
+Michael Egboh,michael@example.com,Investor,Capital Science Academy
+Adaeze Obi,adaeze@example.com,Speaker,TechLagos
+Emeka Nwosu,emeka@example.com,Exhibitor,Finreach
+Blessing Adekunle,blessing@example.com,Delegate,GrowthCo`
 
 function merge(t: string, r: Row) {
   return t.replace(/\{\{(\w+)\}\}/g, (_, k) => r[k] ?? `{{${k}}}`)
@@ -37,8 +36,8 @@ export default function Home() {
   const [step, setStep] = useState<Step>(0)
   const [rows, setRows] = useState<Row[]>([])
   const [headers, setHeaders] = useState<string[]>([])
-  const [subject, setSubject] = useState('Hi {{name}}, a quick note from me')
-  const [body, setBody] = useState('Hi {{name}},\n\nI wanted to reach out to you personally at {{company}}.\n\nLet\'s connect.\n\nBest,\nMike')
+  const [subject, setSubject] = useState('Registration Confirmation 2013 National Compendium Launch')
+  const [body, setBody] = useState('Dear **{{name}}**,\n\nThank you for your successful registration: **The Launch of National Compendium: "Nigeria: Documenting the Economic and Tourism Profiles of 36 States and FCT"**\n\n**Category:** {{category}}\n**Organisation:** {{organisation}}\n\nRegards,\n08037041001 and 08033497750')
   const [senderName, setSenderName] = useState('')
   const [secret, setSecret] = useState('')
   const [log, setLog] = useState<LogEntry[]>([])
