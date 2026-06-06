@@ -3,18 +3,18 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0d0d0f;
-  --surface: #141416;
-  --surface2: #1c1c1f;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.13);
-  --text: #f0efec;
-  --muted: #6b6a67;
-  --accent: #00e09e;
-  --accent-dim: rgba(0,224,158,0.12);
-  --accent-border: rgba(0,224,158,0.3);
-  --danger: #ff5c5c;
-  --danger-dim: rgba(255,92,92,0.1);
+  --bg: #ffffff;
+  --surface: #f9f9f9;
+  --surface2: #f0f0f0;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.15);
+  --text: #1a1a1a;
+  --muted: #777777;
+  --accent: #FFC800;
+  --accent-dim: rgba(255,200,0,0.12);
+  --accent-border: rgba(255,200,0,0.45);
+  --danger: #e53e3e;
+  --danger-dim: rgba(229,62,62,0.1);
   --warn: #f59e0b;
   --radius: 10px;
   --radius-lg: 16px;

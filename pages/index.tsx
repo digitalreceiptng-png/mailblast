@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import Head from 'next/head'
+import Image from 'next/image'
 import Papa from 'papaparse'
 import { useDropzone } from 'react-dropzone'
 import type { SendPayload, SendResult } from './api/send'
@@ -141,19 +142,37 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>MailBlast</title>
+        <title>MailDispatch</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div style={{ maxWidth: 740, margin: '0 auto', padding: '2rem 1.25rem 4rem' }}>
+      <div style={{ maxWidth: 740, margin: '0 auto', padding: '0 1.25rem 4rem' }}>
 
-        {/* Header */}
+        {/* Banner */}
+        <div style={{ margin: '0 -1.25rem 2rem', position: 'relative', width: 'calc(100% + 2.5rem)' }}>
+          <Image
+            src="/banner.png"
+            alt="MailDispatch banner"
+            width={1500}
+            height={600}
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+            priority
+          />
+        </div>
+
+        {/* Logo + name */}
         <div style={{ marginBottom: '2.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.5px' }}>MailBlast</span>
-            <span style={{ fontSize: 11, padding: '3px 8px', background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)', borderRadius: 20, fontFamily: 'var(--mono)' }}>zoho smtp</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+            <Image src="/gotref-logo.png" alt="Gotref Technologies" width={120} height={40} style={{ objectFit: 'contain' }} />
+            <div style={{ width: 1, height: 28, background: 'var(--border2)' }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--text)' }}>MailDispatch</span>
+                <span style={{ fontSize: 11, padding: '3px 8px', background: '#1a1a1a', color: '#FFC800', border: '1px solid rgba(255,200,0,0.3)', borderRadius: 20, fontFamily: 'var(--mono)' }}>zoho smtp</span>
+              </div>
+              <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>Upload a CSV · personalise each email · send via Zoho Mail</p>
+            </div>
           </div>
-          <p style={{ color: 'var(--muted)', fontSize: 13 }}>Upload a CSV · personalise each email · send via Zoho Mail</p>
         </div>
 
         {/* Step nav */}
@@ -426,6 +445,6 @@ const btnStyle: React.CSSProperties = {
 
 const btnPrimaryStyle: React.CSSProperties = {
   ...btnStyle,
-  background: 'var(--accent)', border: '1px solid var(--accent)',
-  color: '#0d0d0f', fontWeight: 600,
+  background: '#1a1a1a', border: '1px solid #1a1a1a',
+  color: '#FFC800', fontWeight: 600,
 }
