@@ -46,6 +46,7 @@ export default function Home() {
   const [smtpStatus, setSmtpStatus] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [delay, setDelay] = useState(3000)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const cancelRef = useRef(false)
 
   const loadCSV = (text: string) => {
     Papa.parse<Row>(text, {
@@ -75,12 +76,25 @@ export default function Home() {
     setSmtpStatus(r.ok ? 'ok' : 'fail')
   }
 
+  const cancelSend = () => { cancelRef.current = true }
+
+  const resetLog = () => setLog([])
+
   const sendAll = async () => {
     if (sending || !rows.length) return
+    cancelRef.current = false
     setSending(true)
-    setLog([])
 
-    for (const row of rows) {
+    // Build set of already-successfully-sent emails from current log
+    const alreadySent = new Set(log.filter(l => l.ok).map(l => l.to))
+    const remaining = rows.filter(r => {
+      const to = r.email || r.Email || r.EMAIL || ''
+      return to && !alreadySent.has(to)
+    })
+
+    let sent = 0
+    for (const row of remaining) {
+      if (cancelRef.current) break
       const to = row.email || row.Email || row.EMAIL || ''
       if (!to) {
         setLog(l => [...l, { ok: false, to: '(missing email)', name: row.name || '' }])
@@ -98,11 +112,12 @@ export default function Home() {
       } catch {
         setLog(l => [...l, { ok: false, to, name: row.name || '', error: 'Network error' }])
       }
-      // 3 second delay between emails to avoid Zoho rate limiting
+      sent++
+      if (cancelRef.current) break
       await new Promise(r => setTimeout(r, delay))
-      // Extra 10 second pause every 10 emails
-      if ((log.length + 1) % 10 === 0) {
-        await new Promise(r => setTimeout(r, 10000))
+      // Extra 15 second pause every 10 emails to avoid Zoho rate limiting
+      if (sent % 10 === 0 && !cancelRef.current) {
+        await new Promise(r => setTimeout(r, 15000))
       }
     }
     setSending(false)
@@ -344,8 +359,18 @@ export default function Home() {
               <button onClick={() => setStep(2)} style={btnStyle}>← Back</button>
               <div style={{ display: 'flex', gap: 8 }}>
                 {log.length > 0 && <button onClick={exportLog} style={btnStyle}>↓ Export log</button>}
+                {ok > 0 && !sending && (
+                  <button onClick={resetLog} style={{ ...btnStyle, color: 'var(--danger)', borderColor: 'var(--danger)' }}>
+                    Start fresh
+                  </button>
+                )}
+                {sending && (
+                  <button onClick={cancelSend} style={{ ...btnStyle, color: 'var(--danger)', borderColor: 'var(--danger)' }}>
+                    Cancel
+                  </button>
+                )}
                 <button onClick={sendAll} disabled={sending || !rows.length} style={btnPrimaryStyle}>
-                  {sending ? 'Sending…' : `Send ${rows.length} emails`}
+                  {sending ? 'Sending…' : ok > 0 ? `Resume (${rows.length - ok} remaining)` : `Send ${rows.length} emails`}
                 </button>
               </div>
             </div>
