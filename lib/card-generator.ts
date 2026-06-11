@@ -1,91 +1,92 @@
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas'
+import sharp from 'sharp'
 import path from 'path'
-import fs from 'fs'
 import { FONT_REGULAR_B64, FONT_BOLD_B64 } from './font-data'
 
-// Fonts are embedded in the JS bundle (lib/font-data.ts).
-// On first call we decode them to /tmp/ (always writable on Vercel Lambda)
-// and register with @napi-rs/canvas. This is the only approach that works
-// reliably on serverless — filesystem paths to static files are not guaranteed.
-let fontsReady = false
+// Card layout constants (pixel ratios confirmed by grid analysis)
+const NAME_X_RATIO   = 0.56   // horizontal centre of name
+const NAME_Y_RATIO   = 0.590  // vertical centre — gap between decorative dividers
+const NAME_MAX_WIDTH_RATIO = 0.70
+const NAME_FONT_MAX  = 36
 
-function ensureFonts() {
-  if (fontsReady) return
-  try {
-    const rPath = '/tmp/CardSerif-Regular.ttf'
-    const bPath = '/tmp/CardSerif-Bold.ttf'
-    if (!fs.existsSync(rPath)) fs.writeFileSync(rPath, Buffer.from(FONT_REGULAR_B64, 'base64'))
-    if (!fs.existsSync(bPath)) fs.writeFileSync(bPath, Buffer.from(FONT_BOLD_B64, 'base64'))
-    GlobalFonts.registerFromPath(rPath, 'CardSerif')
-    GlobalFonts.registerFromPath(bPath, 'CardSerif')
-    fontsReady = true
-    console.log('[card-generator] CardSerif fonts ready')
-  } catch (e) {
-    console.error('[card-generator] Font init failed:', e)
-  }
+const ID_X_RATIO  = 0.12
+const ID_Y_RATIO  = 0.030
+const ID_FONT_SIZE = 28
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
 }
 
-// ─── Full Name — gap between the two decorative horizontal dividers ───────────
-const NAME_X_RATIO  = 0.56
-const NAME_Y_RATIO  = 0.590
-const NAME_FONT_MAX = 36
-const NAME_COLOR    = '#000000'   // solid black — visible on any background
-
-// ─── ID Code — top-left of content area, level with top of presidential seal ─
-const ID_X_RATIO = 0.12
-const ID_Y_RATIO = 0.030
-const ID_FONT    = 'normal 28px CardSerif, serif'
-const ID_COLOR   = '#000000'      // solid black
-
-// Strip leading "N. " row-number prefixes that appear in exported CSV data
 function stripNumberPrefix(raw: string): string {
   let s = raw.trim()
   while (/^\d+\.\s+/.test(s)) s = s.replace(/^\d+\.\s+/, '').trim()
   return s
 }
 
-export async function generateInvitationCard(
-  name: string,
-  idCode = ''
-): Promise<Buffer> {
-  ensureFonts()
+// Estimate font size so text fits within maxWidth (serif bold ~0.55× char width ratio)
+function fitFontSize(text: string, maxWidth: number, maxSize: number): number {
+  let size = maxSize
+  while (size > 14 && text.length * size * 0.55 > maxWidth) size -= 2
+  return size
+}
 
+export async function generateInvitationCard(name: string, idCode = ''): Promise<Buffer> {
   const imagePath = path.join(process.cwd(), 'public', 'invitation-card.png')
-  if (!fs.existsSync(imagePath)) {
-    throw new Error('invitation-card.png not found in /public')
-  }
 
-  const img    = await loadImage(fs.readFileSync(imagePath))
-  const canvas = createCanvas(img.width, img.height)
-  const ctx    = canvas.getContext('2d')
+  const meta = await sharp(imagePath).metadata()
+  const W = meta.width  ?? 1127
+  const H = meta.height ?? 1600
 
-  ctx.drawImage(img, 0, 0)
-
-  // ── ID Code (top-left, level with presidential seal) ──────────────────────
-  if (idCode) {
-    ctx.font         = ID_FONT
-    ctx.fillStyle    = ID_COLOR
-    ctx.textAlign    = 'left'
-    ctx.textBaseline = 'top'
-    ctx.fillText(idCode, img.width * ID_X_RATIO, img.height * ID_Y_RATIO)
-  }
-
-  // ── Full Name (centre, between the decorative dividers) ───────────────────
   const displayName = stripNumberPrefix(name)
-  const maxWidth    = img.width * 0.70
-  let   fontSize    = NAME_FONT_MAX
-  const fontStack   = 'CardSerif, serif'
+  const maxWidth    = W * NAME_MAX_WIDTH_RATIO
+  const fontSize    = fitFontSize(displayName, maxWidth, NAME_FONT_MAX)
 
-  ctx.font = `bold ${fontSize}px ${fontStack}`
-  while (ctx.measureText(displayName).width > maxWidth && fontSize > 16) {
-    fontSize -= 2
-    ctx.font = `bold ${fontSize}px ${fontStack}`
-  }
+  const nameX = Math.round(W * NAME_X_RATIO)
+  const nameY = Math.round(H * NAME_Y_RATIO)
+  const idX   = Math.round(W * ID_X_RATIO)
+  const idY   = Math.round(H * ID_Y_RATIO)
 
-  ctx.fillStyle    = NAME_COLOR
-  ctx.textAlign    = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(displayName, img.width * NAME_X_RATIO, img.height * NAME_Y_RATIO)
+  // Embed both font weights as data URIs inside the SVG so no system font
+  // is needed on the Lambda — works on any OS including Vercel's Amazon Linux.
+  const svgOverlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+  <defs>
+    <style>
+      @font-face {
+        font-family: 'CardSerif';
+        font-weight: normal;
+        src: url('data:font/truetype;base64,${FONT_REGULAR_B64}');
+      }
+      @font-face {
+        font-family: 'CardSerif';
+        font-weight: bold;
+        src: url('data:font/truetype;base64,${FONT_BOLD_B64}');
+      }
+    </style>
+  </defs>
+  ${idCode
+    ? `<text x="${idX}" y="${idY}"
+         dominant-baseline="hanging"
+         font-family="CardSerif, serif"
+         font-size="${ID_FONT_SIZE}"
+         fill="#000000"
+       >${escapeXml(idCode)}</text>`
+    : ''}
+  <text x="${nameX}" y="${nameY}"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="CardSerif, serif"
+    font-weight="bold"
+    font-size="${fontSize}"
+    fill="#000000"
+  >${escapeXml(displayName)}</text>
+</svg>`
 
-  return canvas.toBuffer('image/png')
+  return sharp(imagePath)
+    .composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
+    .png()
+    .toBuffer()
 }
