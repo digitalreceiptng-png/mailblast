@@ -1,3 +1,4 @@
+import React from 'react'
 import satori from 'satori'
 import { Resvg } from '@resvg/resvg-js'
 import sharp from 'sharp'
@@ -44,7 +45,6 @@ export async function generateInvitationCard(name: string, idCode = ''): Promise
   const maxWidth    = CARD_W * NAME_MAX_WIDTH_RATIO
   const fontSize    = fitFontSize(displayName, maxWidth, NAME_FONT_MAX)
 
-  // Absolute position of each text block
   const nameLeft = Math.round(CARD_W * NAME_X_RATIO - maxWidth / 2)
   const nameTop  = Math.round(CARD_H * NAME_Y_RATIO - fontSize / 2)
   const idLeft   = Math.round(CARD_W * ID_X_RATIO)
@@ -52,79 +52,73 @@ export async function generateInvitationCard(name: string, idCode = ''): Promise
 
   const { regular, bold } = getFontBuffers()
 
-  // Step 1 — satori generates a transparent SVG with ONLY the text elements.
-  // Fonts are supplied as ArrayBuffers so no system font lookup is needed.
-  const textSvg = await satori(
-    {
-      type: 'div',
-      props: {
+  // Build element tree with React.createElement for correct TypeScript types.
+  // satori renders this to SVG entirely in JS — no system font lookup needed.
+  const children: React.ReactNode[] = []
+
+  if (idCode) {
+    children.push(
+      React.createElement('div', {
+        key: 'id',
         style: {
-          width: CARD_W,
-          height: CARD_H,
-          display: 'flex',
-          position: 'relative',
-          // no backgroundColor → transparent
+          position: 'absolute' as const,
+          left: idLeft,
+          top: idTop,
+          fontFamily: 'CardSerif',
+          fontWeight: 400,
+          fontSize: ID_FONT_SIZE,
+          color: '#000000',
+          lineHeight: 1,
+          whiteSpace: 'nowrap' as const,
         },
-        children: [
-          // ID Code
-          ...(idCode
-            ? [{
-                type: 'div',
-                props: {
-                  style: {
-                    position: 'absolute',
-                    left: idLeft,
-                    top: idTop,
-                    fontFamily: 'CardSerif',
-                    fontWeight: 400,
-                    fontSize: ID_FONT_SIZE,
-                    color: '#000000',
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
-                  },
-                  children: idCode,
-                },
-              }]
-            : []),
-          // Full Name
-          {
-            type: 'div',
-            props: {
-              style: {
-                position: 'absolute',
-                left: nameLeft,
-                top: nameTop,
-                width: Math.round(maxWidth),
-                display: 'flex',
-                justifyContent: 'center',
-                fontFamily: 'CardSerif',
-                fontWeight: 700,
-                fontSize,
-                color: '#000000',
-                lineHeight: 1,
-                whiteSpace: 'nowrap',
-              },
-              children: displayName,
-            },
-          },
-        ],
+      }, idCode)
+    )
+  }
+
+  children.push(
+    React.createElement('div', {
+      key: 'name',
+      style: {
+        position: 'absolute' as const,
+        left: nameLeft,
+        top: nameTop,
+        width: Math.round(maxWidth),
+        display: 'flex',
+        justifyContent: 'center',
+        fontFamily: 'CardSerif',
+        fontWeight: 700,
+        fontSize,
+        color: '#000000',
+        lineHeight: 1,
+        whiteSpace: 'nowrap' as const,
       },
-    },
-    {
-      width: CARD_W,
-      height: CARD_H,
-      fonts: [
-        { name: 'CardSerif', data: regular, weight: 400, style: 'normal' },
-        { name: 'CardSerif', data: bold,    weight: 700, style: 'normal' },
-      ],
-    }
+    }, displayName)
   )
 
-  // Step 2 — resvg-js (pure WASM) converts the transparent SVG to a PNG buffer.
-  const resvg    = new Resvg(textSvg, { fitTo: { mode: 'width', value: CARD_W } })
-  const textPng  = Buffer.from(resvg.render().asPng())
+  const element = React.createElement('div', {
+    style: {
+      width: CARD_W,
+      height: CARD_H,
+      display: 'flex',
+      position: 'relative' as const,
+    },
+  }, ...children)
 
-  // Step 3 — sharp composites the transparent text layer onto the card image.
+  // Step 1 — satori generates a transparent SVG with only the text elements.
+  const textSvg = await satori(element, {
+    width: CARD_W,
+    height: CARD_H,
+    fonts: [
+      { name: 'CardSerif', data: regular, weight: 400, style: 'normal' },
+      { name: 'CardSerif', data: bold,    weight: 700, style: 'normal' },
+    ],
+  })
+
+  // Step 2 — resvg-js (pure WASM) renders the SVG to a transparent PNG buffer.
+  const resvg   = new Resvg(textSvg, { fitTo: { mode: 'width', value: CARD_W } })
+  const textPng = Buffer.from(resvg.render().asPng())
+
+  // Step 3 — sharp composites the transparent text layer over the card image.
   const imagePath = path.join(process.cwd(), 'public', 'invitation-card.png')
   return sharp(imagePath)
     .composite([{ input: textPng, top: 0, left: 0 }])
