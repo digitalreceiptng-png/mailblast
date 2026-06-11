@@ -12,7 +12,7 @@ const NAME_Y_RATIO         = 0.590
 const NAME_MAX_WIDTH_RATIO = 0.70
 const NAME_FONT_MAX        = 36
 
-const ID_X_RATIO   = 0.155
+const ID_X_RATIO   = 0.205
 const ID_Y_RATIO   = 0.060
 const ID_FONT_SIZE = 26
 
