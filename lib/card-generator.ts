@@ -1,6 +1,14 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas'
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas'
 import path from 'path'
 import fs from 'fs'
+
+// Register bundled Noto Serif fonts at module-load time.
+// Georgia is not available on Linux (Vercel), so we ship our own serif font.
+const FONTS_DIR = path.join(process.cwd(), 'public', 'fonts')
+const FONT_REGULAR = path.join(FONTS_DIR, 'NotoSerif-Regular.ttf')
+const FONT_BOLD    = path.join(FONTS_DIR, 'NotoSerif-Bold.ttf')
+if (fs.existsSync(FONT_REGULAR)) GlobalFonts.registerFromPath(FONT_REGULAR, 'CardSerif')
+if (fs.existsSync(FONT_BOLD))    GlobalFonts.registerFromPath(FONT_BOLD,    'CardSerif')
 
 // ─── Full Name — gap between the two decorative horizontal dividers ───────────
 // Grid analysis on 1127×1600 card: divider gap runs 57.8%–60.3%, centre ≈ 59%
@@ -13,10 +21,10 @@ const NAME_COLOR    = '#1a5c2a'
 // Sidebar ends at x≈135px (12%).  Seal top sits at y≈48px (3%).
 const ID_X_RATIO = 0.12
 const ID_Y_RATIO = 0.030
-const ID_FONT    = 'normal 28px Georgia, serif'   // matches card secondary text
-const ID_COLOR   = '#1f1f1f'                       // near-black, same as date/venue text
+const ID_FONT    = 'normal 28px CardSerif, serif'
+const ID_COLOR   = '#1f1f1f'
 
-// Strip leading row-number prefixes like "1. " or "105. " from CSV exports
+// Strip leading "N. " row-number prefixes that appear in exported CSV data
 function stripNumberPrefix(raw: string): string {
   let s = raw.trim()
   while (/^\d+\.\s+/.test(s)) s = s.replace(/^\d+\.\s+/, '').trim()
@@ -50,15 +58,15 @@ export async function generateInvitationCard(
     ctx.fillText(idCode, img.width * ID_X_RATIO, img.height * ID_Y_RATIO)
   }
 
-  // ── Full Name (centre of card content area) ───────────────────────────────
+  // ── Full Name (centre of card, between the decorative dividers) ───────────
   const displayName = stripNumberPrefix(name)
   const maxWidth    = img.width * 0.70
   let   fontSize    = NAME_FONT_MAX
 
-  ctx.font = `bold ${fontSize}px Georgia, serif`
+  ctx.font = `bold ${fontSize}px CardSerif, serif`
   while (ctx.measureText(displayName).width > maxWidth && fontSize > 16) {
     fontSize -= 2
-    ctx.font = `bold ${fontSize}px Georgia, serif`
+    ctx.font = `bold ${fontSize}px CardSerif, serif`
   }
 
   ctx.fillStyle    = NAME_COLOR

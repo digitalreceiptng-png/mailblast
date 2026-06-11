@@ -127,9 +127,9 @@ Note: If you require assistance with printing your invitation and having the pri
           body: JSON.stringify(payload),
         })
         const data: SendResult = await res.json()
-        setLog(l => [...l, { ...data, name: row.name || '' }])
+        setLog(l => [...l, { ...data, name: row['Full Name'] || row.name || '' }])
       } catch {
-        setLog(l => [...l, { ok: false, to, name: row.name || '', error: 'Network error' }])
+        setLog(l => [...l, { ok: false, to, name: row['Full Name'] || row.name || '', error: 'Network error' }])
       }
       sent++
       if (cancelRef.current) break

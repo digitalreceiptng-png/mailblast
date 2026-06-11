@@ -51,23 +51,26 @@ export default async function handler(
     let   attachments: Parameters<typeof sendMail>[0]['attachments'] = undefined
 
     if (attachCard) {
-      const field        = cardNameField || 'Full Name'
-      const idField      = cardIdField   || 'ID Code'
-      const displayName  = row[field] || row['Full Name'] || row.name || to
-      const idCode       = row[idField]  || row['ID Code']  || ''
-      const cardBuffer   = await generateInvitationCard(displayName, idCode)
+      try {
+        const field       = cardNameField || 'Full Name'
+        const idField     = cardIdField   || 'ID Code'
+        const displayName = row[field] || row['Full Name'] || row.name || to
+        const idCode      = row[idField]  || row['ID Code']  || ''
+        const cardBuffer  = await generateInvitationCard(displayName, idCode)
 
-      attachments = [
-        {
-          filename: 'invitation.png',
-          content: cardBuffer,
-          cid: 'invitation-card',
-          contentDisposition: 'inline',
-        },
-      ]
-
-      // Append inline card image after the email body text
-      html += '<div style="margin-top:28px;"><img src="cid:invitation-card" style="max-width:100%;display:block;" /></div>'
+        attachments = [
+          {
+            filename: 'invitation.png',
+            content: cardBuffer,
+            cid: 'invitation-card',
+            contentDisposition: 'inline',
+          },
+        ]
+        html += '<div style="margin-top:28px;"><img src="cid:invitation-card" style="max-width:100%;display:block;" /></div>'
+      } catch (cardErr) {
+        // Card generation failed — send email without card rather than blocking delivery
+        console.error(`Card generation failed for ${to}:`, cardErr)
+      }
     }
 
     await sendMail({ to, subject: mergedSubject, html, text: mergedBody, from: senderName, attachments })
