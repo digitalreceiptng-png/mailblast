@@ -10,9 +10,9 @@ const NAME_Y_RATIO         = 0.590  // vertical centre — gap between decorativ
 const NAME_MAX_WIDTH_RATIO = 0.70
 const NAME_FONT_MAX        = 36
 
-const ID_X_RATIO   = 0.12
-const ID_Y_RATIO   = 0.030
-const ID_FONT_SIZE = 28
+const ID_X_RATIO   = 0.155  // just past the green sidebar (~145px) into the white area
+const ID_Y_RATIO   = 0.060  // level with the presidential seal
+const ID_FONT_SIZE = 26
 
 const CARD_W = 1127
 const CARD_H = 1600
