@@ -1,6 +1,5 @@
 import React from 'react'
 import satori from 'satori'
-import { Resvg } from '@resvg/resvg-js'
 import sharp from 'sharp'
 import path from 'path'
 import { FONT_REGULAR_B64, FONT_BOLD_B64 } from './font-data'
@@ -52,8 +51,8 @@ export async function generateInvitationCard(name: string, idCode = ''): Promise
 
   const { regular, bold } = getFontBuffers()
 
-  // Build element tree with React.createElement for correct TypeScript types.
-  // satori renders this to SVG entirely in JS — no system font lookup needed.
+  // satori converts text to SVG <path> elements — no font name survives into
+  // the output SVG, so sharp's librsvg has nothing font-related to resolve.
   const children: React.ReactNode[] = []
 
   if (idCode) {
@@ -104,7 +103,6 @@ export async function generateInvitationCard(name: string, idCode = ''): Promise
     },
   }, ...children)
 
-  // Step 1 — satori generates a transparent SVG with only the text elements.
   const textSvg = await satori(element, {
     width: CARD_W,
     height: CARD_H,
@@ -114,14 +112,10 @@ export async function generateInvitationCard(name: string, idCode = ''): Promise
     ],
   })
 
-  // Step 2 — resvg-js (pure WASM) renders the SVG to a transparent PNG buffer.
-  const resvg   = new Resvg(textSvg, { fitTo: { mode: 'width', value: CARD_W } })
-  const textPng = Buffer.from(resvg.render().asPng())
-
-  // Step 3 — sharp composites the transparent text layer over the card image.
+  // sharp can composite the path-only SVG directly — no system font needed.
   const imagePath = path.join(process.cwd(), 'public', 'invitation-card.png')
   return sharp(imagePath)
-    .composite([{ input: textPng, top: 0, left: 0 }])
+    .composite([{ input: Buffer.from(textSvg), top: 0, left: 0 }])
     .png()
     .toBuffer()
 }

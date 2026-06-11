@@ -12,4 +12,10 @@ const nextConfig = {
   },
 }
 
+// sharp is a native module — tell webpack not to try bundling it
+nextConfig.webpack = (config, { isServer }) => {
+  if (isServer) config.externals.push('sharp')
+  return config
+}
+
 module.exports = nextConfig
