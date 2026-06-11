@@ -13,15 +13,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // Verify Vercel cron secret (auto-injected in production)
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const auth = req.headers.authorization
-    if (auth !== `Bearer ${cronSecret}`) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
-  }
-
   const jobId = await redis.get<string>('job:active')
   if (!jobId) return res.json({ message: 'No active job' })
 

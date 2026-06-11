@@ -6,12 +6,6 @@
     "pages/api/jobs/tick.ts": {
       "maxDuration": 300
     }
-  },
-  "crons": [
-    {
-      "path": "/api/jobs/tick",
-      "schedule": "0 * * * *"
-    }
-  ]
+  }
 }
 
