@@ -4,11 +4,22 @@ import fs from 'fs'
 
 // Register bundled Noto Serif fonts at module-load time.
 // Georgia is not available on Linux (Vercel), so we ship our own serif font.
-const FONTS_DIR = path.join(process.cwd(), 'public', 'fonts')
+const FONTS_DIR    = path.join(process.cwd(), 'public', 'fonts')
 const FONT_REGULAR = path.join(FONTS_DIR, 'NotoSerif-Regular.ttf')
 const FONT_BOLD    = path.join(FONTS_DIR, 'NotoSerif-Bold.ttf')
-if (fs.existsSync(FONT_REGULAR)) GlobalFonts.registerFromPath(FONT_REGULAR, 'CardSerif')
-if (fs.existsSync(FONT_BOLD))    GlobalFonts.registerFromPath(FONT_BOLD,    'CardSerif')
+
+if (fs.existsSync(FONT_REGULAR)) {
+  GlobalFonts.registerFromPath(FONT_REGULAR, 'CardSerif')
+  console.log('[card-generator] Registered CardSerif Regular')
+} else {
+  console.error('[card-generator] Font not found:', FONT_REGULAR)
+}
+if (fs.existsSync(FONT_BOLD)) {
+  GlobalFonts.registerFromPath(FONT_BOLD, 'CardSerif')
+  console.log('[card-generator] Registered CardSerif Bold')
+} else {
+  console.error('[card-generator] Font not found:', FONT_BOLD)
+}
 
 // ─── Full Name — gap between the two decorative horizontal dividers ───────────
 // Grid analysis on 1127×1600 card: divider gap runs 57.8%–60.3%, centre ≈ 59%
@@ -21,7 +32,7 @@ const NAME_COLOR    = '#1a5c2a'
 // Sidebar ends at x≈135px (12%).  Seal top sits at y≈48px (3%).
 const ID_X_RATIO = 0.12
 const ID_Y_RATIO = 0.030
-const ID_FONT    = 'normal 28px CardSerif, serif'
+const ID_FONT    = 'normal 28px CardSerif, "Noto Serif", "Liberation Serif", Georgia, serif'
 const ID_COLOR   = '#1f1f1f'
 
 // Strip leading "N. " row-number prefixes that appear in exported CSV data
@@ -63,10 +74,10 @@ export async function generateInvitationCard(
   const maxWidth    = img.width * 0.70
   let   fontSize    = NAME_FONT_MAX
 
-  ctx.font = `bold ${fontSize}px CardSerif, serif`
+  ctx.font = `bold ${fontSize}px CardSerif, "Noto Serif", "Liberation Serif", Georgia, serif`
   while (ctx.measureText(displayName).width > maxWidth && fontSize > 16) {
     fontSize -= 2
-    ctx.font = `bold ${fontSize}px CardSerif, serif`
+    ctx.font = `bold ${fontSize}px CardSerif, "Noto Serif", "Liberation Serif", Georgia, serif`
   }
 
   ctx.fillStyle    = NAME_COLOR
