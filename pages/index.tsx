@@ -637,8 +637,10 @@ function CardPreview({ name, idCode, cacheKey }: { name: string; idCode: string;
     fetch(url)
       .then(async res => {
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}))
-          throw new Error(body.error || `Server returned ${res.status}`)
+          const text = await res.text().catch(() => '')
+          let message = `Server returned ${res.status}`
+          try { const j = JSON.parse(text); message = j.error || message } catch { /* html page */ }
+          throw new Error(message)
         }
         return res.blob()
       })
