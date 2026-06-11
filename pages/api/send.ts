@@ -12,6 +12,7 @@ export type SendPayload = {
   secret?: string
   attachCard?: boolean
   cardNameField?: string
+  cardIdField?: string
 }
 
 export type SendResult = {
@@ -36,7 +37,7 @@ export default async function handler(
     }
   }
 
-  const { to, row, subject, body, senderName, attachCard, cardNameField } =
+  const { to, row, subject, body, senderName, attachCard, cardNameField, cardIdField } =
     req.body as SendPayload
 
   if (!to || !subject || !body) {
@@ -50,9 +51,11 @@ export default async function handler(
     let   attachments: Parameters<typeof sendMail>[0]['attachments'] = undefined
 
     if (attachCard) {
-      const field        = cardNameField || 'name'
-      const displayName  = row[field] || row.name || to
-      const cardBuffer   = await generateInvitationCard(displayName)
+      const field        = cardNameField || 'Full Name'
+      const idField      = cardIdField   || 'ID Code'
+      const displayName  = row[field] || row['Full Name'] || row.name || to
+      const idCode       = row[idField]  || row['ID Code']  || ''
+      const cardBuffer   = await generateInvitationCard(displayName, idCode)
 
       attachments = [
         {

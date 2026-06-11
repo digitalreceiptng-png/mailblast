@@ -3,7 +3,7 @@
  * Unknown keys are left as-is.
  */
 export function mergeTemplate(template: string, row: Record<string, string>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+  return template.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
     return row[key] !== undefined ? row[key] : `{{${key}}}`
   })
 }

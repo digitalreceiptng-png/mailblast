@@ -16,7 +16,7 @@ Emeka Nwosu,emeka@example.com,Exhibitor,Finreach
 Blessing Adekunle,blessing@example.com,Delegate,GrowthCo`
 
 function merge(t: string, r: Row) {
-  return t.replace(/\{\{(\w+)\}\}/g, (_, k) => r[k] ?? `{{${k}}}`)
+  return t.replace(/\{\{([^}]+)\}\}/g, (_, k) => r[k] ?? `{{${k}}}`)
 }
 
 function insertAtCursor(
@@ -39,12 +39,27 @@ export default function Home() {
   const [step, setStep] = useState<Step>(0)
   const [rows, setRows] = useState<Row[]>([])
   const [headers, setHeaders] = useState<string[]>([])
-  const [subject, setSubject] = useState('Registration Confirmation 2013 National Compendium Launch')
-  const [body, setBody] = useState('Dear **{{name}}**,\n\nThank you for your successful registration: **The Launch of National Compendium: "Nigeria: Documenting the Economic and Tourism Profiles of 36 States and FCT"**\n\n**Category:** {{category}}\n**Organisation:** {{organisation}}\n\nRegards,\n08037041001 and 08033497750')
+  const [subject, setSubject] = useState('Confirmation of Attendance – Sub-National Government Economic and Tourism Information Roundtable')
+  const [body, setBody] = useState(
+`Dear **{{Full Name}}**,
+
+We are pleased to confirm your attendance at the Sub-National Government Economic and Tourism Information Roundtable and the official launch of the National Compendium documenting the Economic and Tourism Profiles of the 36 States and the Federal Capital Territory.
+
+Please find attached your personalised invitation. Kindly print the invitation and come with the printed copy, as it will be required for admission into the Presidential Villa.
+
+Kindly also look out for another email to be sent to you on Tuesday, 16 June 2026. The email will provide details of the designated gathering point for security clearance, from where the Presidential Villa Protocol Team will lead invited guests to the venue of the events.
+
+For any enquiry, please call the Lead Coordinator, Tajudeen Toyin-Oke, on 08033497750.
+
+We look forward to welcoming you to the programme.
+
+Note: If you require assistance with printing your invitation and having the printed copy delivered to your doorstep, you may consider using the services available at ComputerService.ng. Please note that this service is entirely optional and may attract applicable printing and delivery charges.`
+  )
   const [senderName, setSenderName] = useState('')
   const [secret, setSecret] = useState('')
   const [attachCard, setAttachCard] = useState(false)
-  const [cardNameField, setCardNameField] = useState('name')
+  const [cardNameField, setCardNameField] = useState('Full Name')
+  const [cardIdField, setCardIdField] = useState('ID Code')
   const [log, setLog] = useState<LogEntry[]>([])
   const [sending, setSending] = useState(false)
   const [pi, setPi] = useState(0)
@@ -104,7 +119,7 @@ export default function Home() {
         setLog(l => [...l, { ok: false, to: '(missing email)', name: row.name || '' }])
         continue
       }
-      const payload: SendPayload = { to, row, subject, body, senderName, secret, attachCard, cardNameField }
+      const payload: SendPayload = { to, row, subject, body, senderName, secret, attachCard, cardNameField, cardIdField }
       try {
         const res = await fetch('/api/send', {
           method: 'POST',
@@ -347,16 +362,25 @@ export default function Home() {
 
               {attachCard && (
                 <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div>
-                    <label className="field-label">Column to print on card</label>
-                    <select value={cardNameField} onChange={e => setCardNameField(e.target.value)}>
-                      {headers.map(h => (
-                        <option key={h} value={h}>{h}</option>
-                      ))}
-                    </select>
-                    <p className="field-hint">
-                      The value from this column is printed onto the card for each recipient.
-                    </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label className="field-label">Name column</label>
+                      <select value={cardNameField} onChange={e => setCardNameField(e.target.value)}>
+                        {headers.map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                      <p className="field-hint">Printed in the centre of the card.</p>
+                    </div>
+                    <div>
+                      <label className="field-label">ID Code column</label>
+                      <select value={cardIdField} onChange={e => setCardIdField(e.target.value)}>
+                        {headers.map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                      <p className="field-hint">Printed top-left, level with the seal.</p>
+                    </div>
                   </div>
                   <p className="field-hint" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.6rem 0.8rem' }}>
                     Place your card image at <code>/public/invitation-card.png</code> in the project folder.
@@ -435,13 +459,14 @@ export default function Home() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                   <p className="field-label" style={{ margin: 0 }}>Card preview</p>
                   <span className="chip chip-accent">
-                    {rows[pi][cardNameField] || rows[pi].name || 'Guest'}
+                    {rows[pi][cardIdField] || rows[pi]['ID Code'] || ''}{' '}
+                    {rows[pi][cardNameField] || rows[pi]['Full Name'] || 'Guest'}
                   </span>
                 </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  key={`card-${pi}-${cardNameField}`}
-                  src={`/api/generate-card?name=${encodeURIComponent(rows[pi][cardNameField] || rows[pi].name || 'Guest')}`}
+                  key={`card-${pi}-${cardNameField}-${cardIdField}`}
+                  src={`/api/generate-card?name=${encodeURIComponent(rows[pi][cardNameField] || rows[pi]['Full Name'] || 'Guest')}&idCode=${encodeURIComponent(rows[pi][cardIdField] || rows[pi]['ID Code'] || '')}`}
                   alt="Personalised invitation card preview"
                   style={{ maxWidth: '100%', display: 'block', borderRadius: 6, border: '1px solid var(--border)' }}
                 />
