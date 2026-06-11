@@ -1,25 +1,21 @@
+import satori from 'satori'
+import { Resvg } from '@resvg/resvg-js'
 import sharp from 'sharp'
 import path from 'path'
 import { FONT_REGULAR_B64, FONT_BOLD_B64 } from './font-data'
 
-// Card layout constants (pixel ratios confirmed by grid analysis)
-const NAME_X_RATIO   = 0.56   // horizontal centre of name
-const NAME_Y_RATIO   = 0.590  // vertical centre — gap between decorative dividers
+// Card layout constants (ratios confirmed by pixel-grid analysis)
+const NAME_X_RATIO         = 0.56   // horizontal centre of name text
+const NAME_Y_RATIO         = 0.590  // vertical centre — gap between decorative dividers
 const NAME_MAX_WIDTH_RATIO = 0.70
-const NAME_FONT_MAX  = 36
+const NAME_FONT_MAX        = 36
 
-const ID_X_RATIO  = 0.12
-const ID_Y_RATIO  = 0.030
+const ID_X_RATIO   = 0.12
+const ID_Y_RATIO   = 0.030
 const ID_FONT_SIZE = 28
 
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-}
+const CARD_W = 1127
+const CARD_H = 1600
 
 function stripNumberPrefix(raw: string): string {
   let s = raw.trim()
@@ -27,66 +23,111 @@ function stripNumberPrefix(raw: string): string {
   return s
 }
 
-// Estimate font size so text fits within maxWidth (serif bold ~0.55× char width ratio)
+// Approximate font-size that keeps text within maxWidth (serif bold ≈ 0.55× char width)
 function fitFontSize(text: string, maxWidth: number, maxSize: number): number {
   let size = maxSize
   while (size > 14 && text.length * size * 0.55 > maxWidth) size -= 2
   return size
 }
 
+// Cache decoded font buffers (decoded once per Lambda instance)
+let fontRegularBuf: ArrayBuffer | null = null
+let fontBoldBuf:    ArrayBuffer | null = null
+function getFontBuffers(): { regular: ArrayBuffer; bold: ArrayBuffer } {
+  if (!fontRegularBuf) fontRegularBuf = Buffer.from(FONT_REGULAR_B64, 'base64').buffer as ArrayBuffer
+  if (!fontBoldBuf)   fontBoldBuf    = Buffer.from(FONT_BOLD_B64,    'base64').buffer as ArrayBuffer
+  return { regular: fontRegularBuf, bold: fontBoldBuf }
+}
+
 export async function generateInvitationCard(name: string, idCode = ''): Promise<Buffer> {
-  const imagePath = path.join(process.cwd(), 'public', 'invitation-card.png')
-
-  const meta = await sharp(imagePath).metadata()
-  const W = meta.width  ?? 1127
-  const H = meta.height ?? 1600
-
   const displayName = stripNumberPrefix(name)
-  const maxWidth    = W * NAME_MAX_WIDTH_RATIO
+  const maxWidth    = CARD_W * NAME_MAX_WIDTH_RATIO
   const fontSize    = fitFontSize(displayName, maxWidth, NAME_FONT_MAX)
 
-  const nameX = Math.round(W * NAME_X_RATIO)
-  const nameY = Math.round(H * NAME_Y_RATIO)
-  const idX   = Math.round(W * ID_X_RATIO)
-  const idY   = Math.round(H * ID_Y_RATIO)
+  // Absolute position of each text block
+  const nameLeft = Math.round(CARD_W * NAME_X_RATIO - maxWidth / 2)
+  const nameTop  = Math.round(CARD_H * NAME_Y_RATIO - fontSize / 2)
+  const idLeft   = Math.round(CARD_W * ID_X_RATIO)
+  const idTop    = Math.round(CARD_H * ID_Y_RATIO)
 
-  // Embed both font weights as data URIs inside the SVG so no system font
-  // is needed on the Lambda — works on any OS including Vercel's Amazon Linux.
-  const svgOverlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-  <defs>
-    <style>
-      @font-face {
-        font-family: 'CardSerif';
-        font-weight: normal;
-        src: url('data:font/truetype;base64,${FONT_REGULAR_B64}');
-      }
-      @font-face {
-        font-family: 'CardSerif';
-        font-weight: bold;
-        src: url('data:font/truetype;base64,${FONT_BOLD_B64}');
-      }
-    </style>
-  </defs>
-  ${idCode
-    ? `<text x="${idX}" y="${idY}"
-         dominant-baseline="hanging"
-         font-family="CardSerif, serif"
-         font-size="${ID_FONT_SIZE}"
-         fill="#000000"
-       >${escapeXml(idCode)}</text>`
-    : ''}
-  <text x="${nameX}" y="${nameY}"
-    text-anchor="middle"
-    dominant-baseline="middle"
-    font-family="CardSerif, serif"
-    font-weight="bold"
-    font-size="${fontSize}"
-    fill="#000000"
-  >${escapeXml(displayName)}</text>
-</svg>`
+  const { regular, bold } = getFontBuffers()
 
+  // Step 1 — satori generates a transparent SVG with ONLY the text elements.
+  // Fonts are supplied as ArrayBuffers so no system font lookup is needed.
+  const textSvg = await satori(
+    {
+      type: 'div',
+      props: {
+        style: {
+          width: CARD_W,
+          height: CARD_H,
+          display: 'flex',
+          position: 'relative',
+          // no backgroundColor → transparent
+        },
+        children: [
+          // ID Code
+          ...(idCode
+            ? [{
+                type: 'div',
+                props: {
+                  style: {
+                    position: 'absolute',
+                    left: idLeft,
+                    top: idTop,
+                    fontFamily: 'CardSerif',
+                    fontWeight: 400,
+                    fontSize: ID_FONT_SIZE,
+                    color: '#000000',
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                  },
+                  children: idCode,
+                },
+              }]
+            : []),
+          // Full Name
+          {
+            type: 'div',
+            props: {
+              style: {
+                position: 'absolute',
+                left: nameLeft,
+                top: nameTop,
+                width: Math.round(maxWidth),
+                display: 'flex',
+                justifyContent: 'center',
+                fontFamily: 'CardSerif',
+                fontWeight: 700,
+                fontSize,
+                color: '#000000',
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+              },
+              children: displayName,
+            },
+          },
+        ],
+      },
+    },
+    {
+      width: CARD_W,
+      height: CARD_H,
+      fonts: [
+        { name: 'CardSerif', data: regular, weight: 400, style: 'normal' },
+        { name: 'CardSerif', data: bold,    weight: 700, style: 'normal' },
+      ],
+    }
+  )
+
+  // Step 2 — resvg-js (pure WASM) converts the transparent SVG to a PNG buffer.
+  const resvg    = new Resvg(textSvg, { fitTo: { mode: 'width', value: CARD_W } })
+  const textPng  = Buffer.from(resvg.render().asPng())
+
+  // Step 3 — sharp composites the transparent text layer onto the card image.
+  const imagePath = path.join(process.cwd(), 'public', 'invitation-card.png')
   return sharp(imagePath)
-    .composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
+    .composite([{ input: textPng, top: 0, left: 0 }])
     .png()
     .toBuffer()
 }

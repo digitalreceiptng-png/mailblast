@@ -9,12 +9,14 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",
+    "@resvg/resvg-js": "^2.6.2",
     "next": "14.2.3",
     "nodemailer": "^6.9.13",
     "papaparse": "^5.4.1",
     "react": "^18",
     "react-dom": "^18",
     "react-dropzone": "^14.2.3",
+    "satori": "^0.26.0",
     "sharp": "^0.35.0"
   },
   "devDependencies": {
