@@ -16,12 +16,14 @@ export async function sendMail({
   html,
   text,
   from,
+  attachments,
 }: {
   to: string
   subject: string
   html: string
   text: string
   from?: string
+  attachments?: nodemailer.SendMailOptions['attachments']
 }) {
   const senderName = process.env.SENDER_NAME || 'MailBlast'
   const fromAddress = process.env.ZOHO_USER!
@@ -32,5 +34,6 @@ export async function sendMail({
     subject,
     html,
     text,
+    attachments,
   })
 }
