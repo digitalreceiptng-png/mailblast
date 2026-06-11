@@ -55,7 +55,7 @@ For any enquiry, please call the Lead Coordinator, Tajudeen Toyin-Oke, on 080334
 
 We look forward to welcoming you to the programme.
 
-Note: If you require assistance with printing your invitation and having the printed copy delivered to your doorstep [**CLICK HERE**](https://snitir.computerservice.ng). Please note that this service is entirely optional and may attract applicable printing and delivery charges.`
+Note: If you require assistance with printing your invitation and having the printed copy delivered to your doorstep [**CLICK HERE**](https://www.computerservice.ng/special-services). Please note that this service is entirely optional and may attract applicable printing and delivery charges.`
   )
   const [senderName, setSenderName] = useState('')
   const [secret, setSecret] = useState('')
