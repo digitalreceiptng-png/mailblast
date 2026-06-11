@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, Fragment } from 'react'
+import { useState, useCallback, useRef, Fragment, useEffect } from 'react'
 import Head from 'next/head'
 import Image from 'next/image'
 import Papa from 'papaparse'
@@ -455,22 +455,11 @@ Note: If you require assistance with printing your invitation and having the pri
             </div>
 
             {attachCard && rows[pi] && (
-              <div className="card" style={{ marginTop: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <p className="field-label" style={{ margin: 0 }}>Card preview</p>
-                  <span className="chip chip-accent">
-                    {rows[pi][cardIdField] || rows[pi]['ID Code'] || ''}{' '}
-                    {rows[pi][cardNameField] || rows[pi]['Full Name'] || 'Guest'}
-                  </span>
-                </div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  key={`card-${pi}-${cardNameField}-${cardIdField}`}
-                  src={`/api/generate-card?name=${encodeURIComponent(rows[pi][cardNameField] || rows[pi]['Full Name'] || 'Guest')}&idCode=${encodeURIComponent(rows[pi][cardIdField] || rows[pi]['ID Code'] || '')}`}
-                  alt="Personalised invitation card preview"
-                  style={{ maxWidth: '100%', display: 'block', borderRadius: 6, border: '1px solid var(--border)' }}
-                />
-              </div>
+              <CardPreview
+                name={rows[pi][cardNameField] || rows[pi]['Full Name'] || 'Guest'}
+                idCode={rows[pi][cardIdField] || rows[pi]['ID Code'] || ''}
+                cacheKey={`${pi}-${cardNameField}-${cardIdField}`}
+              />
             )}
 
             <div className="step-footer">
@@ -628,5 +617,76 @@ Note: If you require assistance with printing your invitation and having the pri
       </main>
       </div>
     </>
+  )
+}
+
+// ─── Card Preview ─────────────────────────────────────────────────────────────
+
+function CardPreview({ name, idCode, cacheKey }: { name: string; idCode: string; cacheKey: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let revoked = false
+    setSrc(null)
+    setError(null)
+    setLoading(true)
+
+    const url = `/api/generate-card?name=${encodeURIComponent(name)}&idCode=${encodeURIComponent(idCode)}`
+    fetch(url)
+      .then(async res => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || `Server returned ${res.status}`)
+        }
+        return res.blob()
+      })
+      .then(blob => {
+        if (revoked) return
+        setSrc(URL.createObjectURL(blob))
+        setLoading(false)
+      })
+      .catch(err => {
+        if (revoked) return
+        setError(err.message || 'Failed to generate card')
+        setLoading(false)
+      })
+
+    return () => {
+      revoked = true
+      if (src) URL.revokeObjectURL(src)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey])
+
+  return (
+    <div className="card" style={{ marginTop: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+        <p className="field-label" style={{ margin: 0 }}>Card preview</p>
+        <span className="chip chip-accent">{idCode} {name}</span>
+      </div>
+
+      {loading && (
+        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--ink-muted)', fontSize: 13, fontFamily: 'var(--mono)' }}>
+          Generating card…
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: '1rem', background: 'var(--danger-dim)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius)', fontSize: 13, fontFamily: 'var(--mono)', color: 'var(--danger)' }}>
+          <strong>Card generation failed:</strong> {error}
+        </div>
+      )}
+
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt="Personalised invitation card preview"
+          style={{ maxWidth: '100%', display: 'block', borderRadius: 6, border: '1px solid var(--border)' }}
+        />
+      )}
+    </div>
   )
 }
