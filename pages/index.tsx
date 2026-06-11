@@ -43,7 +43,7 @@ export default function Home() {
   const [headers, setHeaders] = useState<string[]>([])
   const [subject, setSubject] = useState('Confirmation of Attendance – Sub-National Government Economic and Tourism Information Roundtable')
   const [body, setBody] = useState(
-`Dear **{{Full Name}}**,
+`Dear {{Full Name}},
 
 We are pleased to confirm your attendance at the Sub-National Government Economic and Tourism Information Roundtable and the official launch of the National Compendium documenting the Economic and Tourism Profiles of the 36 States and the Federal Capital Territory.
 
@@ -55,7 +55,7 @@ For any enquiry, please call the Lead Coordinator, Tajudeen Toyin-Oke, on 080334
 
 We look forward to welcoming you to the programme.
 
-Note: If you require assistance with printing your invitation and having the printed copy delivered to your doorstep, you may consider using the services available at ComputerService.ng. Please note that this service is entirely optional and may attract applicable printing and delivery charges.`
+Note: If you require assistance with printing your invitation and having the printed copy delivered to your doorstep [**CLICK HERE**](https://snitir.computerservice.ng). Please note that this service is entirely optional and may attract applicable printing and delivery charges.`
   )
   const [senderName, setSenderName] = useState('')
   const [secret, setSecret] = useState('')
