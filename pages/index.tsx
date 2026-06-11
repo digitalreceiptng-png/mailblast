@@ -4,6 +4,8 @@ import Image from 'next/image'
 import Papa from 'papaparse'
 import { useDropzone } from 'react-dropzone'
 import type { SendPayload, SendResult } from './api/send'
+import type { JobStatus } from '@/lib/email-job'
+import { BATCH_SIZE } from '@/lib/email-job'
 
 type Row = Record<string, string>
 type LogEntry = SendResult & { name?: string }
@@ -67,6 +69,81 @@ Note: If you require assistance with printing your invitation and having the pri
   const [delay, setDelay] = useState(3000)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const cancelRef = useRef(false)
+
+  // Scheduled job state
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
+  const [scheduling, setScheduling] = useState(false)
+
+  // Restore saved job on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('mailblast_job_id')
+    if (saved) setJobId(saved)
+  }, [])
+
+  // Poll job status every 15s while a job is active
+  useEffect(() => {
+    if (!jobId) return
+    let cancelled = false
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`)
+        if (cancelled) return
+        if (res.status === 404) {
+          setJobId(null); setJobStatus(null)
+          localStorage.removeItem('mailblast_job_id')
+          return
+        }
+        if (res.ok) setJobStatus(await res.json())
+      } catch { /* ignore */ }
+    }
+
+    poll()
+    const interval = setInterval(poll, 15000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [jobId])
+
+  const scheduleJob = async () => {
+    if (scheduling || !rows.length) return
+    setScheduling(true)
+    try {
+      const res = await fetch('/api/jobs/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipients: rows, subject, body, senderName, attachCard, cardNameField, cardIdField }),
+      })
+      const data = await res.json()
+      if (data.id) {
+        setJobId(data.id)
+        localStorage.setItem('mailblast_job_id', data.id)
+      }
+    } catch { /* ignore */ }
+    setScheduling(false)
+  }
+
+  const cancelJob = async () => {
+    if (!jobId) return
+    await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
+    setJobStatus(s => s ? { ...s, status: 'cancelled' } : null)
+    setJobId(null)
+    localStorage.removeItem('mailblast_job_id')
+  }
+
+  const clearJob = () => {
+    setJobId(null); setJobStatus(null)
+    localStorage.removeItem('mailblast_job_id')
+  }
+
+  function nextRunLabel() {
+    const now  = new Date()
+    const next = new Date(now)
+    next.setHours(next.getHours() + 1, 0, 0, 0)
+    const mins = Math.round((next.getTime() - now.getTime()) / 60000)
+    return `${mins} min${mins !== 1 ? 's' : ''}`
+  }
+
+  const jobActive = jobStatus?.status === 'pending' || jobStatus?.status === 'running'
 
   const loadCSV = (text: string) => {
     Papa.parse<Row>(text, {
@@ -575,6 +652,49 @@ Note: If you require assistance with printing your invitation and having the pri
               </div>
             )}
 
+            {/* Scheduled job status panel */}
+            {jobStatus && (
+              <div className="card" style={{ borderLeft: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
+                  <p className="card-title" style={{ margin: 0 }}>Scheduled Job</p>
+                  <span className={`chip ${jobStatus.status === 'completed' ? 'chip-accent' : jobStatus.status === 'cancelled' ? 'chip-danger' : 'chip-pending'}`}>
+                    {jobStatus.status === 'running' ? 'Running' : jobStatus.status === 'completed' ? 'Completed' : jobStatus.status === 'cancelled' ? 'Cancelled' : 'Pending — waiting for next hour'}
+                  </span>
+                </div>
+
+                <div className="progress-wrap">
+                  <div className="progress-track">
+                    <div className="progress-fill" style={{ width: `${jobStatus.totalCount ? Math.round((jobStatus.sentCount / jobStatus.totalCount) * 100) : 0}%` }} />
+                  </div>
+                  <p className="progress-label">
+                    {jobStatus.sentCount} of {jobStatus.totalCount} sent
+                    {jobStatus.failedCount > 0 && <> · <span style={{ color: 'var(--danger)' }}>{jobStatus.failedCount} failed</span></>}
+                  </p>
+                </div>
+
+                {jobActive && (
+                  <p className="field-hint" style={{ marginTop: '0.6rem' }}>
+                    Next batch of {BATCH_SIZE} sends in ~{nextRunLabel()} · runs automatically every hour
+                  </p>
+                )}
+
+                {jobStatus.status === 'completed' && (
+                  <p className="field-hint" style={{ marginTop: '0.6rem', color: 'var(--accent)' }}>
+                    All {jobStatus.totalCount} emails delivered.
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.875rem' }}>
+                  {jobActive && (
+                    <button onClick={cancelJob} className="btn btn-sm btn-danger">Cancel schedule</button>
+                  )}
+                  {!jobActive && (
+                    <button onClick={clearJob} className="btn btn-sm">Clear</button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="step-footer">
               <button onClick={() => setStep(2)} className="btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -599,15 +719,23 @@ Note: If you require assistance with printing your invitation and having the pri
                   </button>
                 )}
                 <button
+                  onClick={scheduleJob}
+                  disabled={scheduling || !rows.length || jobActive}
+                  className="btn"
+                >
+                  {scheduling ? 'Scheduling…' : jobActive ? `Scheduled (${BATCH_SIZE}/hr)` : `Schedule (${BATCH_SIZE}/hr)`}
+                </button>
+                <button
                   onClick={sendAll}
-                  disabled={sending || !rows.length}
+                  disabled={sending || !rows.length || jobActive}
                   className="btn btn-primary"
+                  title={jobActive ? 'Cancel the scheduled job first to send manually' : undefined}
                 >
                   {sending
                     ? 'Sending…'
                     : ok > 0
                     ? `Resume (${rows.length - ok} remaining)`
-                    : `Send ${rows.length} emails`}
+                    : `Send ${rows.length} now`}
                 </button>
               </div>
             </div>

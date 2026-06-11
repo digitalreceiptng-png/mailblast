@@ -6,3 +6,4 @@ node_modules/
 *.csv
 tsconfig.tsbuildinfo
 .claude/
+.vercel

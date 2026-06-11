@@ -425,6 +425,12 @@ textarea {
   border-color: var(--danger-border);
 }
 
+.chip-pending {
+  background: #fff8e0;
+  color: #92710a;
+  border-color: #f0d060;
+}
+
 
 /* ─── Merge-tag buttons ──────────────────────────────────────────────────── */
 
