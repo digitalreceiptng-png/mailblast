@@ -5,8 +5,12 @@ import { sendMail } from '@/lib/mailer'
 import { mergeTemplate, textToHtml } from '@/lib/merge'
 import { generateInvitationCard } from '@/lib/card-generator'
 
-// Allow up to 300s (capped to 60s on Hobby plan, 300s on Pro)
 export const config = { maxDuration: 300 }
+
+// Stop processing 12s before Vercel's hard limit so Redis saves always finish
+const VERCEL_HOBBY_LIMIT_MS = 60_000
+const SAFETY_BUFFER_MS      = 12_000
+const MAX_RUN_MS             = VERCEL_HOBBY_LIMIT_MS - SAFETY_BUFFER_MS  // 48s
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -27,13 +31,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ message: `Job already ${job.status}` })
   }
 
-  // Acquire lock — prevents duplicate execution if cron fires early
+  // Acquire lock — prevents duplicate execution if QStash retries
   const lockKey = `job:${jobId}:lock`
   const locked  = await redis.set(lockKey, '1', { nx: true, ex: 600 })
   if (!locked) return res.json({ message: 'Batch already in progress' })
 
-  const batchStart = job.currentIndex
-  let batchSent    = 0
+  // Sent-address set — deduplication guard against any retry edge case
+  const sentSetKey = `job:${jobId}:sent`
+
+  const batchStart  = job.currentIndex
+  let   batchSent   = 0
+  const runStart    = Date.now()
 
   try {
     job.status    = 'running'
@@ -41,15 +49,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const batch = job.recipients.slice(job.currentIndex, job.currentIndex + job.batchSize)
 
-    let cancelled = false
     for (const row of batch) {
-      if (cancelled) break
+      // Stop early if we're approaching the timeout — gives Redis saves room to finish
+      if (Date.now() - runStart > MAX_RUN_MS) break
 
       const to = row.email || row.Email || row.EMAIL || ''
       if (!to) {
         job.currentIndex++
         job.failedCount++
         await redis.set(`job:${jobId}`, job, { ex: JOB_TTL })
+        continue
+      }
+
+      // Dedup check — skip if already sent in a previous run
+      const alreadySent = await redis.sismember(sentSetKey, to)
+      if (alreadySent) {
+        job.currentIndex++
+        await redis.set(`job:${jobId}`, job, { ex: JOB_TTL })
+        batchSent++
         continue
       }
 
@@ -65,10 +82,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const idCode      = row[job.cardIdField]   || row['ID Code']   || ''
             const cardBuffer  = await generateInvitationCard(displayName, idCode)
             attachments = [{
-              filename:            'invitation.png',
-              content:             cardBuffer,
-              cid:                 'invitation-card',
-              contentDisposition:  'inline',
+              filename:           'invitation.png',
+              content:            cardBuffer,
+              cid:                'invitation-card',
+              contentDisposition: 'inline',
             }]
             html += '<div style="margin-top:28px;"><img src="cid:invitation-card" style="max-width:100%;display:block;" /></div>'
           } catch (cardErr) {
@@ -77,6 +94,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         await sendMail({ to, subject: mergedSubject, html, text: mergedBody, from: job.senderName, attachments })
+
+        // Mark sent in dedup set BEFORE updating the job index.
+        // If we crash between these two saves, the dedup set prevents a re-send.
+        await redis.sadd(sentSetKey, to)
+        await redis.expire(sentSetKey, JOB_TTL)
+
         job.sentCount++
         batchSent++
       } catch (err) {
@@ -87,8 +110,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       job.currentIndex++
-
-      // Save progress after each email — survives a timeout mid-batch
       await redis.set(`job:${jobId}`, job, { ex: JOB_TTL })
     }
 
@@ -107,6 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       currentIndex: job.currentIndex,
       totalCount:   job.totalCount,
       status:       job.status,
+      elapsed:      Date.now() - runStart,
     })
   } finally {
     await redis.del(lockKey)
