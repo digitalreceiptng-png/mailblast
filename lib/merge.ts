@@ -1,3 +1,9 @@
+export function stripNumberPrefix(raw: string): string {
+  let s = raw.trim()
+  while (/^\d+\.\s+/.test(s)) s = s.replace(/^\d+\.\s+/, '').trim()
+  return s
+}
+
 /**
  * Replace {{key}} tokens in a template string with values from a row object.
  * Unknown keys are left as-is.

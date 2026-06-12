@@ -2,8 +2,11 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { redis } from '@/lib/redis'
 import { type EmailJob, JOB_TTL } from '@/lib/email-job'
 import { sendMail } from '@/lib/mailer'
-import { mergeTemplate, textToHtml } from '@/lib/merge'
+import { mergeTemplate, textToHtml, stripNumberPrefix } from '@/lib/merge'
 import { generateInvitationCard } from '@/lib/card-generator'
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+const DELAY_BETWEEN_EMAILS_MS = 4_000  // 4s gap — keeps well under Zoho rate limits
 
 export const config = { maxDuration: 300 }
 
@@ -71,15 +74,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       try {
-        const mergedSubject = mergeTemplate(job.subject, row)
-        const mergedBody    = mergeTemplate(job.body, row)
+        // Strip any leading number prefix from the Full Name field (e.g. "15. John" → "John")
+        const cleanRow = { ...row }
+        if (cleanRow['Full Name']) cleanRow['Full Name'] = stripNumberPrefix(cleanRow['Full Name'])
+        if (cleanRow['name'])      cleanRow['name']      = stripNumberPrefix(cleanRow['name'])
+
+        const mergedSubject = mergeTemplate(job.subject, cleanRow)
+        const mergedBody    = mergeTemplate(job.body, cleanRow)
         let   html          = textToHtml(mergedBody)
         let   attachments: Parameters<typeof sendMail>[0]['attachments'] = undefined
 
         if (job.attachCard) {
           try {
-            const displayName = row[job.cardNameField] || row['Full Name'] || row.name || to
-            const idCode      = row[job.cardIdField]   || row['ID Code']   || ''
+            const displayName = cleanRow[job.cardNameField] || cleanRow['Full Name'] || cleanRow['name'] || to
+            const idCode      = cleanRow[job.cardIdField]   || cleanRow['ID Code']   || ''
             const cardBuffer  = await generateInvitationCard(displayName, idCode)
             attachments = [{
               filename:           'invitation.png',
@@ -94,6 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         await sendMail({ to, subject: mergedSubject, html, text: mergedBody, from: job.senderName, attachments })
+        await sleep(DELAY_BETWEEN_EMAILS_MS)
 
         // Mark sent in dedup set BEFORE updating the job index.
         // If we crash between these two saves, the dedup set prevents a re-send.

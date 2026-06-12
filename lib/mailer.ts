@@ -8,6 +8,9 @@ export const transporter = nodemailer.createTransport({
     user: process.env.ZOHO_USER,
     pass: process.env.ZOHO_PASS,
   },
+  connectionTimeout: 15_000,   // 15s to establish connection
+  greetingTimeout:   10_000,   // 10s for SMTP greeting
+  socketTimeout:     20_000,   // 20s for any socket inactivity
 })
 
 export async function sendMail({

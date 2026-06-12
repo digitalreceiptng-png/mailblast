@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { sendMail } from '@/lib/mailer'
-import { mergeTemplate, textToHtml } from '@/lib/merge'
+import { mergeTemplate, textToHtml, stripNumberPrefix } from '@/lib/merge'
 import { generateInvitationCard } from '@/lib/card-generator'
 
 export type SendPayload = {
@@ -45,8 +45,12 @@ export default async function handler(
   }
 
   try {
-    const mergedSubject = mergeTemplate(subject, row)
-    const mergedBody    = mergeTemplate(body, row)
+    const cleanRow = { ...row }
+    if (cleanRow['Full Name']) cleanRow['Full Name'] = stripNumberPrefix(cleanRow['Full Name'])
+    if (cleanRow['name'])      cleanRow['name']      = stripNumberPrefix(cleanRow['name'])
+
+    const mergedSubject = mergeTemplate(subject, cleanRow)
+    const mergedBody    = mergeTemplate(body, cleanRow)
     let   html          = textToHtml(mergedBody)
     let   attachments: Parameters<typeof sendMail>[0]['attachments'] = undefined
 
@@ -54,8 +58,8 @@ export default async function handler(
       try {
         const field       = cardNameField || 'Full Name'
         const idField     = cardIdField   || 'ID Code'
-        const displayName = row[field] || row['Full Name'] || row.name || to
-        const idCode      = row[idField]  || row['ID Code']  || ''
+        const displayName = cleanRow[field] || cleanRow['Full Name'] || cleanRow['name'] || to
+        const idCode      = cleanRow[idField]  || cleanRow['ID Code']  || ''
         const cardBuffer  = await generateInvitationCard(displayName, idCode)
 
         attachments = [
