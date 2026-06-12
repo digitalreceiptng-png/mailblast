@@ -523,10 +523,17 @@ textarea {
 /* ─── Data Table (upload preview) ────────────────────────────────────────── */
 
 .table-scroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 420px;
   border-radius: var(--radius-lg);
   border: 1.5px solid var(--border2);
   box-shadow: var(--shadow-xs);
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .data-table {

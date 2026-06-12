@@ -41,6 +41,7 @@ export default function Home() {
   const [step, setStep] = useState<Step>(0)
   const [rows, setRows] = useState<Row[]>([])
   const [headers, setHeaders] = useState<string[]>([])
+  const [selectedIdxs, setSelectedIdxs] = useState<Set<number>>(new Set())
   const [subject, setSubject] = useState('Confirmation of Attendance – Sub-National Government Economic and Tourism Information Roundtable')
   const [body, setBody] = useState(
 `Dear {{Full Name}},
@@ -115,7 +116,7 @@ Please note that this service is entirely optional and may attract applicable pr
       const res = await fetch('/api/jobs/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipients: rows, subject, body, senderName, attachCard, cardNameField, cardIdField }),
+        body: JSON.stringify({ recipients: rows.filter((_, i) => selectedIdxs.has(i)), subject, body, senderName, attachCard, cardNameField, cardIdField }),
       })
       const data = await res.json()
       if (data.id) {
@@ -160,6 +161,7 @@ Please note that this service is entirely optional and may attract applicable pr
       complete(r) {
         setRows(r.data)
         setHeaders(r.meta.fields ?? [])
+        setSelectedIdxs(new Set(r.data.map((_, i) => i)))
       },
     })
   }
@@ -186,12 +188,13 @@ Please note that this service is entirely optional and may attract applicable pr
   const resetLog = () => setLog([])
 
   const sendAll = async () => {
-    if (sending || !rows.length) return
+    const activeRows = rows.filter((_, i) => selectedIdxs.has(i))
+    if (sending || !activeRows.length) return
     cancelRef.current = false
     setSending(true)
 
     const alreadySent = new Set(log.filter(l => l.ok).map(l => l.to))
-    const remaining = rows.filter(r => {
+    const remaining = activeRows.filter(r => {
       const to = r.email || r.Email || r.EMAIL || ''
       return to && !alreadySent.has(to)
     })
@@ -237,9 +240,10 @@ Please note that this service is entirely optional and may attract applicable pr
     a.click()
   }
 
+  const selectedCount = selectedIdxs.size
   const ok = log.filter(l => l.ok).length
   const err = log.filter(l => !l.ok).length
-  const pct = rows.length ? Math.round((log.length / rows.length) * 100) : 0
+  const pct = selectedCount ? Math.round((log.length / selectedCount) * 100) : 0
 
   return (
     <>
@@ -342,7 +346,9 @@ Please note that this service is entirely optional and may attract applicable pr
             {rows.length > 0 && (
               <div style={{ marginTop: '1.75rem' }}>
                 <div className="upload-meta">
-                  <span className="chip chip-accent">{rows.length} contacts</span>
+                  <span className="chip chip-accent">
+                    {selectedCount} / {rows.length} selected
+                  </span>
                   <span className="upload-meta-cols">{headers.join(', ')}</span>
                 </div>
 
@@ -350,29 +356,62 @@ Please note that this service is entirely optional and may attract applicable pr
                   <table className="data-table">
                     <thead>
                       <tr>
+                        <th style={{ width: 36, textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedCount === rows.length}
+                            ref={el => { if (el) el.indeterminate = selectedCount > 0 && selectedCount < rows.length }}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setSelectedIdxs(new Set(rows.map((_, i) => i)))
+                              } else {
+                                setSelectedIdxs(new Set())
+                              }
+                            }}
+                            style={{ cursor: 'pointer', width: 15, height: 15 }}
+                            aria-label="Select all"
+                          />
+                        </th>
                         {headers.map(h => <th key={h}>{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.slice(0, 4).map((r, i) => (
-                        <tr key={i}>
+                      {rows.map((r, i) => (
+                        <tr
+                          key={i}
+                          style={{ opacity: selectedIdxs.has(i) ? 1 : 0.4, cursor: 'pointer' }}
+                          onClick={() => setSelectedIdxs(prev => {
+                            const next = new Set(prev)
+                            if (next.has(i)) next.delete(i); else next.add(i)
+                            return next
+                          })}
+                        >
+                          <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedIdxs.has(i)}
+                              onChange={() => setSelectedIdxs(prev => {
+                                const next = new Set(prev)
+                                if (next.has(i)) next.delete(i); else next.add(i)
+                                return next
+                              })}
+                              style={{ cursor: 'pointer', width: 15, height: 15 }}
+                            />
+                          </td>
                           {headers.map(h => <td key={h}>{r[h] || ''}</td>)}
                         </tr>
                       ))}
-                      {rows.length > 4 && (
-                        <tr>
-                          <td colSpan={headers.length} className="table-more">
-                            and {rows.length - 4} more rows
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
 
                 <div className="step-footer">
                   <span />
-                  <button onClick={() => setStep(1)} className="btn btn-primary">
+                  <button
+                    onClick={() => setStep(1)}
+                    disabled={selectedCount === 0}
+                    className="btn btn-primary"
+                  >
                     Compose
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <polyline points="9 18 15 12 9 6"/>
@@ -520,7 +559,7 @@ Please note that this service is entirely optional and may attract applicable pr
                   </svg>
                 </button>
                 <span style={{ flex: 1 }} />
-                <span className="chip chip-accent">{rows.length} emails ready</span>
+                <span className="chip chip-accent">{selectedCount} of {rows.length} selected</span>
               </div>
 
               <div className="email-preview">
@@ -555,7 +594,7 @@ Please note that this service is entirely optional and may attract applicable pr
                 Edit
               </button>
               <button onClick={() => setStep(3)} className="btn btn-primary">
-                Send {rows.length} emails
+                Send {selectedCount} emails
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
@@ -609,8 +648,8 @@ Please note that this service is entirely optional and may attract applicable pr
             {/* Stats */}
             <div className="stat-grid">
               <div className="stat-card">
-                <div className="stat-value">{rows.length}</div>
-                <div className="stat-label">Total</div>
+                <div className="stat-value">{selectedCount}</div>
+                <div className="stat-label">Selected</div>
               </div>
               <div className="stat-card">
                 <div className="stat-value" style={{ color: ok > 0 ? 'var(--accent)' : undefined }}>{ok}</div>
@@ -628,7 +667,7 @@ Please note that this service is entirely optional and may attract applicable pr
                 <div className="progress-track">
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
-                <p className="progress-label">{pct}% &mdash; {log.length} of {rows.length}</p>
+                <p className="progress-label">{pct}% &mdash; {log.length} of {selectedCount}</p>
               </div>
             )}
 
@@ -728,22 +767,22 @@ Please note that this service is entirely optional and may attract applicable pr
                 )}
                 <button
                   onClick={scheduleJob}
-                  disabled={scheduling || !rows.length || jobActive}
+                  disabled={scheduling || !selectedCount || jobActive}
                   className="btn"
                 >
                   {scheduling ? 'Scheduling…' : jobActive ? `Scheduled (${BATCH_SIZE}/hr)` : `Schedule (${BATCH_SIZE}/hr)`}
                 </button>
                 <button
                   onClick={sendAll}
-                  disabled={sending || !rows.length || jobActive}
+                  disabled={sending || !selectedCount || jobActive}
                   className="btn btn-primary"
                   title={jobActive ? 'Cancel the scheduled job first to send manually' : undefined}
                 >
                   {sending
                     ? 'Sending…'
                     : ok > 0
-                    ? `Resume (${rows.length - ok} remaining)`
-                    : `Send ${rows.length} now`}
+                    ? `Resume (${selectedCount - ok} remaining)`
+                    : `Send ${selectedCount} now`}
                 </button>
               </div>
             </div>
