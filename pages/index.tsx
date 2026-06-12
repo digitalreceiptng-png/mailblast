@@ -121,8 +121,12 @@ Please note that this service is entirely optional and may attract applicable pr
       if (data.id) {
         setJobId(data.id)
         localStorage.setItem('mailblast_job_id', data.id)
+      } else {
+        alert('Schedule failed: ' + (data.error || JSON.stringify(data)))
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      alert('Schedule failed: ' + (e instanceof Error ? e.message : 'Network error'))
+    }
     setScheduling(false)
   }
 
