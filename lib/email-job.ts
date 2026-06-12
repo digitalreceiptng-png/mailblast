@@ -1,4 +1,4 @@
-export const BATCH_SIZE = 20
+export const BATCH_SIZE = 42
 export const JOB_TTL    = 7 * 24 * 60 * 60  // 7 days in seconds
 
 export interface EmailJob {
