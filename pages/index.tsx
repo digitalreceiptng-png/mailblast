@@ -42,11 +42,11 @@ export default function Home() {
   const [rows, setRows] = useState<Row[]>([])
   const [headers, setHeaders] = useState<string[]>([])
   const [selectedIdxs, setSelectedIdxs] = useState<Set<number>>(new Set())
-  const [subject, setSubject] = useState('Confirmation of Attendance – Sub-National Government Economic and Tourism Information Roundtable')
+  const [subject, setSubject] = useState('UPDATE: YOUR PICK UP LOCATION AND TIME')
   const [body, setBody] = useState(
 `Dear {{Full Name}},
 
-Further to our earlier invitation, we write to inform you that you are expected to arrive at the Conference Hall, 1st Floor, Block D, Head of Service Building, Secretariat, Abuja, by 10:30am on Wednesday, 17 June 2026.
+Further to our earlier invitation, we write to inform you that you are expected to arrive at the Conference Hall, 1st Floor, Block D, Head of Service Building, Secretariat, Abuja, by {{Time}} on Wednesday, 17 June 2026.
 
 Your security clearance will be conducted at this location, after which transportation will be provided to convey you to the Presidential Villa. Please come with the printed copy of your personalised invitation, as it will be required for clearance and admission.
 
