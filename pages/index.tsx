@@ -46,21 +46,15 @@ export default function Home() {
   const [body, setBody] = useState(
 `Dear {{Full Name}},
 
-We are pleased to confirm your attendance at the Sub-National Government Economic and Tourism Information Roundtable and the official launch of the National Compendium documenting the Economic and Tourism Profiles of the 36 States and the Federal Capital Territory.
+Further to our earlier invitation, we write to inform you that you are expected to arrive at the Conference Hall, 1st Floor, Block D, Head of Service Building, Secretariat, Abuja, by 10:30am on Wednesday, 17 June 2026.
 
-Please find attached your personalised invitation. Kindly print the invitation and come with the printed copy, as it will be required for admission into the Presidential Villa.
+Your security clearance will be conducted at this location, after which transportation will be provided to convey you to the Presidential Villa. Please come with the printed copy of your personalised invitation, as it will be required for clearance and admission.
 
-Kindly also look out for another email to be sent to you on Tuesday, 16 June 2026. The email will provide details of the designated gathering point for security clearance, from where the Presidential Villa Protocol Team will lead invited guests to the venue of the events.
+For security reasons, guests are kindly advised not to come with items that are not permitted in restricted areas and any other item that may raise security concerns.
 
 For any enquiry, please call the Lead Coordinator, Tajudeen Toyin-Oke, on 08033497750.
 
-We look forward to welcoming you to the programme.
-
-To download image tap and hold down
-
-Note: If you require assistance with printing your invitation and having the printed copy delivered to your doorstep [**CLICK HERE**](https://www.computerservice.ng/special-services).
-
-Please note that this service is entirely optional and may attract applicable printing and delivery charges.`
+Kind regards,`
   )
   const [senderName, setSenderName] = useState('')
   const [secret, setSecret] = useState('')
