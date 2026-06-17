@@ -108,6 +108,26 @@ Kind regards,`
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const cancelRef = useRef(false)
 
+  // Manual entry mode
+  type ManualEntry = { fullName: string; email: string; idCode: string; time: string }
+  const [manualMode, setManualMode] = useState(false)
+  const [manualEntries, setManualEntries] = useState<ManualEntry[]>([{ fullName: '', email: '', idCode: '', time: '' }])
+
+  const updateManualEntry = (i: number, field: keyof ManualEntry, value: string) => {
+    setManualEntries(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e))
+  }
+
+  const applyManual = () => {
+    const r = manualEntries
+      .filter(e => e.email.trim())
+      .map(e => ({ 'Full Name': e.fullName.trim(), email: e.email.trim(), 'ID Code': e.idCode.trim(), Time: e.time.trim() }))
+    if (!r.length) return
+    setRows(r)
+    setHeaders(['Full Name', 'email', 'ID Code', 'Time'])
+    setSelectedIdxs(new Set(r.map((_, i) => i)))
+    setStep(1)
+  }
+
   // Scheduled job state
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
@@ -352,29 +372,123 @@ Kind regards,`
         {/* ── Step 0: Upload ─────────────────────────────────────────────── */}
         {step === 0 && (
           <div>
-            <div
-              {...getRootProps()}
-              className={`dropzone${isDragActive ? ' drag-active' : ''}`}
-            >
-              <input {...getInputProps()} />
-              <div className="dropzone-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-              </div>
-              <p className="dropzone-title">
-                {isDragActive ? 'Drop to import' : 'Drop your CSV or click to browse'}
-              </p>
-              <p className="dropzone-hint">
-                Required column: <code>email</code> &nbsp;·&nbsp; Any other column becomes a merge tag
-              </p>
+            {/* Mode toggle */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              <button
+                className={`btn btn-sm${!manualMode ? ' btn-primary' : ''}`}
+                onClick={() => setManualMode(false)}
+              >
+                Upload CSV
+              </button>
+              <button
+                className={`btn btn-sm${manualMode ? ' btn-primary' : ''}`}
+                onClick={() => setManualMode(true)}
+              >
+                Enter manually
+              </button>
             </div>
 
-            <button onClick={() => loadCSV(SAMPLE_CSV)} className="btn btn-sm">
-              Load sample data
-            </button>
+            {!manualMode ? (
+              <>
+                <div
+                  {...getRootProps()}
+                  className={`dropzone${isDragActive ? ' drag-active' : ''}`}
+                >
+                  <input {...getInputProps()} />
+                  <div className="dropzone-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </div>
+                  <p className="dropzone-title">
+                    {isDragActive ? 'Drop to import' : 'Drop your CSV or click to browse'}
+                  </p>
+                  <p className="dropzone-hint">
+                    Required column: <code>email</code> &nbsp;·&nbsp; Any other column becomes a merge tag
+                  </p>
+                </div>
+                <button onClick={() => loadCSV(SAMPLE_CSV)} className="btn btn-sm">
+                  Load sample data
+                </button>
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {manualEntries.map((entry, i) => (
+                  <div key={i} className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', position: 'relative' }}>
+                    <div>
+                      <label className="field-label">Full Name</label>
+                      <input
+                        type="text"
+                        value={entry.fullName}
+                        onChange={e => updateManualEntry(i, 'fullName', e.target.value)}
+                        placeholder="Adaeze Obi"
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label">Email</label>
+                      <input
+                        type="email"
+                        value={entry.email}
+                        onChange={e => updateManualEntry(i, 'email', e.target.value)}
+                        placeholder="adaeze@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label">ID Code</label>
+                      <input
+                        type="text"
+                        value={entry.idCode}
+                        onChange={e => updateManualEntry(i, 'idCode', e.target.value)}
+                        placeholder="GV-001"
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label">Arrival Time</label>
+                      <input
+                        type="text"
+                        value={entry.time}
+                        onChange={e => updateManualEntry(i, 'time', e.target.value)}
+                        placeholder="10:30am"
+                      />
+                    </div>
+                    {manualEntries.length > 1 && (
+                      <button
+                        onClick={() => setManualEntries(prev => prev.filter((_, idx) => idx !== i))}
+                        className="btn btn-sm btn-danger"
+                        style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', padding: '2px 8px' }}
+                        aria-label="Remove contact"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  className="btn btn-sm"
+                  onClick={() => setManualEntries(prev => [...prev, { fullName: '', email: '', idCode: '', time: '' }])}
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  + Add another
+                </button>
+
+                <div className="step-footer">
+                  <span />
+                  <button
+                    onClick={applyManual}
+                    disabled={!manualEntries.some(e => e.email.trim())}
+                    className="btn btn-primary"
+                  >
+                    Compose
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {rows.length > 0 && (
               <div style={{ marginTop: '1.75rem' }}>
